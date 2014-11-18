@@ -1,0 +1,30 @@
+
+
+
+body
+{
+    margin:0;
+    padding:0;
+    font-family: "Helvetica Neue Light", "Lucida Grande", "Calibri", "Arial", sans-serif;
+    font-weight:lighter;
+    font-size: 14px;
+    background-color:#2f2a2b;
+    /*font-family: elysium;*/
+}
+
+svg text{
+    fill:#2f2a2b;
+    font-family: "Helvetica Neue Light", "Lucida Grande", "Calibri", "Arial", sans-serif;
+    font-size:8px;
+    text-anchor:middle;
+}
+
+#mainVisualization
+{
+    font-family: "Helvetica Neue Light", "Lucida Grande", "Calibri", "Arial", sans-serif;
+    font-size: 14px;
+    margin:0px;
+}
+
+
+

@@ -1,0 +1,44 @@
+<html>
+<head>
+    <!--/**
+     * Created by Sven Charleer @ KU Leuven on 30/07/14.
+     */
+         -->
+
+    <title>Resource Overview</title>
+    <script type="text/javascript" src="js/crossfilter.js"></script>
+    <script type="text/javascript" src="js/jquery-2.1.1.min.js"></script>
+    <script type="text/javascript" src="js/d3.min.js"></script>
+
+    <script type="text/javascript" src="js/eventCount.js"></script>
+    <link rel="stylesheet" href="css/eventCount.css">
+
+    <script type="application/javascript">
+        function loadWidgets()
+        {
+            var dataFiles = {}
+            <% for (var dataFile in dataset) { %>
+              <% if (dataset.hasOwnProperty(dataFile)) { %>
+                dataFiles["<%= dataFile %>"] = <%- JSON.stringify(dataset[dataFile]) %>;
+              <% } %>
+            <% } %>
+
+            var __data = dataFiles["moocrp.json"];
+            var main =  new eventCount();
+            main.init(__data, "Total","#mainVisualization","#content");
+        }
+
+    </script>
+</head>
+<body onload="javascript:loadWidgets();">
+
+
+<div id="mainVisualization">
+  <h2>Resource Overview</h2>
+  <br>
+</div>
+
+
+
+</body>
+</html>
