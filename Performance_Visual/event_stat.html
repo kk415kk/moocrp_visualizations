@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Student Performance and Event Data Statistics</title>
+<style>
+
+@import url(http://fonts.googleapis.com/css?family=Yanone+Kaffeesatz:400,700);
+
+body {
+  font-family: "Helvetica Neue";
+  margin: 40px auto;
+  width: 960px;
+  min-height: 2000px;
+}
+
+#body {
+  position: relative;
+}
+
+footer {
+  padding: 2em 0 1em 0;
+  font-size: 12px;
+}
+
+h1 {
+  font-size: 72px;
+  margin-top: .3em;
+  margin-bottom: 0;
+}
+
+h1 + h2 {
+  margin-top: 0;
+}
+
+h2 {
+  font-weight: 400;
+  font-size: 28px;
+}
+
+h1, h2 {
+  font-family: "Yanone Kaffeesatz";
+  text-rendering: optimizeLegibility;
+}
+
+#body > p {
+  line-height: 1.5em;
+  width: 640px;
+  text-rendering: optimizeLegibility;
+}
+
+#charts {
+  padding: 10px 0;
+}
+
+.chart {
+  display: inline-block;
+  height: 151px;
+  margin-bottom: 20px;
+}
+
+.reset {
+  padding-left: 1em;
+  font-size: smaller;
+  color: #ccc;
+}
+
+.background.bar {
+  fill: #ccc;
+}
+
+.foreground.bar {
+  fill: steelblue;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  font: 10px sans-serif;
+}
+
+.brush rect.extent {
+  fill: steelblue;
+  fill-opacity: .125;
+}
+
+.brush .resize path {
+  fill: #eee;
+  stroke: #666;
+}
+
+#yob-chart {
+  width: 450px;
+}
+
+#gender-chart {
+  width: 200px;
+}
+
+#ed-chart {
+  width: 250px;
+}
+
+#event-chart {
+  width: 600px;
+}
+
+#grade-chart {
+  width: 230px;
+}
+
+#capture {
+  font-size: smaller;
+}
+
+aside {
+  position: absolute;
+  left: 700px;
+  font-size: smaller;
+  width: 220px;
+}
+
+</style>
+
+<div id="body">
+
+<h2>Student Performance and Event Data Statistics</h2>
+
+<p>Visualization of relationship between basic event statistics and student performance (for all students in cerficate and enrollment tables whose grades > 0.0). We remove the consecutive duplicate events within each student.</p>
+
+<p><b><span id="active">-</span></b> of <span id="total">-</span> users selected.</p>
+
+<div id="charts">
+  <!-- <div id="yob-chart" class="chart"> -->
+  <!--   <div class="title">Year of Birth</div> -->
+  <!--   <p id="capture"> 1880=unknown</p> -->
+  <!-- </div> -->
+  <!-- <div id="gender-chart" class="chart"> -->
+  <!--   <div class="title"> -->
+  <!--     Gender -->
+  <!--   </div> -->
+  <!--   <p id="capture"> u(-1) m(0) f(1)</p> -->
+  <!-- </div> -->
+  <!-- <div id="ed-chart" class="chart"> -->
+  <!--   <div class="title"> -->
+  <!--     Level of Education -->
+  <!--   </div> -->
+  <!--   <p id="capture"> u(-1) none(0) el(1) jhs(2) hs(3) b(4) m(5) p_se(6) p_oth(7) other(8)</p> -->
+  <!-- </div> -->
+  <div id="grade-chart" class="chart">
+    <div class="title">Grade</div>
+  </div>
+  <div id="event-chart" class="chart">
+    <div class="title">Total Events</div>
+  </div>
+  <div id="problem-chart" class="chart">
+    <div class="title">Problem Events</div>
+  </div>
+  <div id="forum-chart" class="chart">
+    <div class="title">Forum Events</div>
+  </div>
+  <div id="page-chart" class="chart">
+    <div class="title">Page Events</div>
+  </div>
+  <div id="video-chart" class="chart">
+    <div class="title">Video Events</div>
+  </div>
+  <div id="wiki-chart" class="chart">
+    <div class="title">Wiki Events</div>
+  </div>
+  <div id="seq-chart" class="chart">
+    <div class="title">Seq Events</div>
+  </div>
+</div>
+
+<!-- <div id="lists"> -->
+<!--   <div id="flight-list" class="list"></div> -->
+<!-- </div> -->
+
+<footer>
+  <!-- <span style="float:right;"> -->
+  <!-- Released under the <a href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache License 2.0</a>. -->
+  <!-- </span> -->
+  <span style="float:right;">
+  Visualization based on BKT module (built from <a href="https://github.com/square/crossfilter">Square's Crossfilter</a>)
+  </span>
+  Phitchaya Mangpo Phothilimthana, UC Berkeley
+</footer>
+
+</div>
+
+<script src="js/crossfilter.v1.min.js"></script>
+<script src="js/d3.v3.min.js"></script>
+<script>
+
+// (It's CSV, but GitHub Pages only gzip's JSON at the moment.)
+d3.csv("grade_not_0.csv", function(error, users) {
+
+  // Various formatters.
+  var formatNumber = d3.format(",d"),
+      formatChange = d3.format("+,d"),
+      formatDate = d3.time.format("%B %d, %Y"),
+      formatTime = d3.time.format("%I:%M %p");
+
+  // A little coercion, since the CSV is untyped.
+  users.forEach(function(d, i) {
+    d.index = i;
+    d.grade = +d.grade;
+    if(d.year_of_birth == "NULL")
+      d.year_of_birth = 1880;
+    else
+      d.year_of_birth = +d.year_of_birth;
+
+    if(d.gender=="m") d.gender=0;
+    else if(d.gender=="f") d.gender=1; 
+    else d.gender=-1;
+
+    if(d.ed=="unknown") d.ed=-1;
+    else if(d.ed=="none") d.ed=0;
+    else if(d.ed=="el") d.ed=1;
+    else if(d.ed=="jhs") d.ed=2;
+    else if(d.ed=="hs") d.ed=3;
+    else if(d.ed=="b") d.ed=4;
+    else if(d.ed=="m") d.ed=5;
+    else if(d.ed=="p_se") d.ed=6;
+    else if(d.ed=="p_oth") d.ed=7;
+    else if(d.ed=="other") d.ed=8;
+    else d.ed=9;
+    
+    d.event = +d.total
+    d.problem = +d.problem
+    d.forum = +d.forum
+    d.page = +d.page
+    d.video = +d.video
+    d.wiki = +d.wiki
+    d.seq = +d.seq
+  });
+
+  // Create the crossfilter for the relevant dimensions and groups.
+  var user = crossfilter(users),
+      all = user.groupAll(),
+      gender = user.dimension(function(d) { return d.gender; }),
+      genders = gender.group(function(d) { return d; }),
+      yob = user.dimension(function(d) { return d.year_of_birth; }),
+      yobs = yob.group(function(d) { return d; }),
+      ed = user.dimension(function(d) { return d.ed; }),
+      eds = ed.group(function(d) { return d; }),
+      event = user.dimension(function(d) { return d.event; }),
+      events = event.group(function(d) { return Math.floor(d/500) * 500; }),
+      problem = user.dimension(function(d) { return d.problem; }),
+      problems = problem.group(function(d) { return Math.floor(d/200) * 200; }),
+      forum = user.dimension(function(d) { return d.forum; }),
+      forums = forum.group(function(d) { return Math.floor(d/100) * 100; }),
+      page = user.dimension(function(d) { return d.page; }),
+      pages = page.group(function(d) { return Math.floor(d/200) * 200; }),
+      video = user.dimension(function(d) { return d.video; }),
+      videos = video.group(function(d) { return Math.floor(d/250) * 250; }),
+      wiki = user.dimension(function(d) { return d.wiki; }),
+      wikis = wiki.group(function(d) { return Math.floor(d/10) * 10; }),
+      seq = user.dimension(function(d) { return d.seq; }),
+      seqs = seq.group(function(d) { return Math.floor(d/50) * 50; }),
+      grade = user.dimension(function(d) { return d.grade * 100; }),
+      grades = grade.group(function(d) { return Math.floor(d / 10) * 10; });
+
+  var charts = [
+/*
+    barChart()
+        .dimension(yob)
+        .group(yobs)
+      .x(d3.scale.linear()
+        .domain([1880, 2020])
+        .rangeRound([0, 400])),
+
+    barChart()
+        .dimension(gender)
+        .group(genders)
+      .x(d3.scale.linear()
+        .domain([-1, 2])
+        .rangeRound([0, 150])),
+
+    barChart()
+        .dimension(ed)
+        .group(eds)
+      .x(d3.scale.linear()
+        .domain([-1, 10])
+        .rangeRound([0, 200])),*/
+
+    barChart()
+        .dimension(grade)
+        .group(grades)
+      .x(d3.scale.linear()
+        .domain([0, 105])
+        .rangeRound([0, 20 * 10])),
+
+    barChart()
+        .dimension(event)
+        .group(events)
+      .x(d3.scale.linear()
+        .domain([0, 14000])
+        .rangeRound([0, 500])),
+
+    barChart()
+        .dimension(problem)
+        .group(problems)
+      .x(d3.scale.linear()
+        .domain([0, 1800])
+        .rangeRound([0, 400])),
+
+    barChart()
+        .dimension(forum)
+        .group(forums)
+      .x(d3.scale.linear()
+        .domain([0, 1800])
+        .rangeRound([0, 300])),
+
+    barChart()
+        .dimension(page)
+        .group(pages)
+      .x(d3.scale.linear()
+        .domain([0, 2200])
+        .rangeRound([0, 400])),
+
+    barChart()
+        .dimension(video)
+        .group(videos)
+      .x(d3.scale.linear()
+        .domain([0, 7000])
+        .rangeRound([0, 400])),
+
+    barChart()
+        .dimension(wiki)
+        .group(wikis)
+      .x(d3.scale.linear()
+        .domain([0, 220])
+        .rangeRound([0, 300])),
+
+    barChart()
+        .dimension(seq)
+        .group(seqs)
+      .x(d3.scale.linear()
+        .domain([0, 600])
+        .rangeRound([0, 300]))
+  ];
+
+  // Given our array of charts, which we assume are in the same order as the
+  // .chart elements in the DOM, bind the charts to the DOM and render them.
+  // We also listen to the chart's brush events to update the display.
+  var chart = d3.selectAll(".chart")
+      .data(charts)
+      .each(function(chart) { chart.on("brush", renderAll).on("brushend", renderAll); });
+
+  // Render the total.
+  d3.selectAll("#total")
+      .text(formatNumber(user.size()));
+
+  renderAll();
+
+  // Renders the specified chart or list.
+  function render(method) {
+    d3.select(this).call(method);
+  }
+
+  // Whenever the brush moves, re-rendering everything.
+  function renderAll() {
+    chart.each(render);
+    //list.each(render);
+    d3.select("#active").text(formatNumber(all.value()));
+  }
+
+  // Like d3.time.format, but faster.
+  function parseDate(d) {
+    return new Date(2001,
+        d.substring(0, 2) - 1,
+        d.substring(2, 4),
+        d.substring(4, 6),
+        d.substring(6, 8));
+  }
+
+  window.filter = function(filters) {
+    filters.forEach(function(d, i) { charts[i].filter(d); });
+    renderAll();
+  };
+
+  window.reset = function(i) {
+    charts[i].filter(null);
+    renderAll();
+  };
+
+  function barChart() {
+    if (!barChart.id) barChart.id = 0;
+
+    var margin = {top: 10, right: 10, bottom: 20, left: 10},
+        x,
+        y = d3.scale.linear().range([100, 0]),
+        id = barChart.id++,
+        axis = d3.svg.axis().orient("bottom"),
+        brush = d3.svg.brush(),
+        brushDirty,
+        dimension,
+        group,
+        round;
+
+    function chart(div) {
+      var width = x.range()[x.range().length-1],
+          height = y.range()[0];
+
+      y.domain([0, group.top(1)[0].value]);
+
+      div.each(function() {
+        var div = d3.select(this),
+            g = div.select("g");
+
+        // Create the skeletal chart.
+        if (g.empty()) {
+          div.select(".title").append("a")
+              .attr("href", "javascript:reset(" + id + ")")
+              .attr("class", "reset")
+              .text("reset")
+              .style("display", "none");
+
+          g = div.append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+              .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+          g.append("clipPath")
+              .attr("id", "clip-" + id)
+            .append("rect")
+              .attr("width", width)
+              .attr("height", height);
+
+          g.selectAll(".bar")
+              .data(["background", "foreground"])
+            .enter().append("path")
+              .attr("class", function(d) { return d + " bar"; })
+              .datum(group.all());
+
+          g.selectAll(".foreground.bar")
+              .attr("clip-path", "url(#clip-" + id + ")");
+
+          g.append("g")
+              .attr("class", "axis")
+              .attr("transform", "translate(0," + height + ")")
+              .call(axis);
+
+          // Initialize the brush component with pretty resize handles.
+          var gBrush = g.append("g").attr("class", "brush").call(brush);
+          gBrush.selectAll("rect").attr("height", height);
+          gBrush.selectAll(".resize").append("path").attr("d", resizePath);
+        }
+
+        // Only redraw the brush if set externally.
+        if (brushDirty) {
+          brushDirty = false;
+          g.selectAll(".brush").call(brush);
+          div.select(".title a").style("display", brush.empty() ? "none" : null);
+          if (brush.empty()) {
+            g.selectAll("#clip-" + id + " rect")
+                .attr("x", 0)
+                .attr("width", width);
+          } else {
+            var extent = brush.extent();
+            g.selectAll("#clip-" + id + " rect")
+                .attr("x", x(extent[0]))
+                .attr("width", x(extent[1]) - x(extent[0]));
+          }
+        }
+
+        g.selectAll(".bar").attr("d", barPath);
+      });
+
+      function barPath(groups) {
+        var path = [],
+            i = -1,
+            n = groups.length,
+            d;
+        while (++i < n) {
+          d = groups[i];
+          path.push("M", x(d.key), ",", height, "V", y(d.value), "h9V", height);
+        }
+        return path.join("");
+      }
+
+      function resizePath(d) {
+        var e = +(d == "e"),
+            x = e ? 1 : -1,
+            y = height / 3;
+        return "M" + (.5 * x) + "," + y
+            + "A6,6 0 0 " + e + " " + (6.5 * x) + "," + (y + 6)
+            + "V" + (2 * y - 6)
+            + "A6,6 0 0 " + e + " " + (.5 * x) + "," + (2 * y)
+            + "Z"
+            + "M" + (2.5 * x) + "," + (y + 8)
+            + "V" + (2 * y - 8)
+            + "M" + (4.5 * x) + "," + (y + 8)
+            + "V" + (2 * y - 8);
+      }
+    }
+
+    brush.on("brushstart.chart", function() {
+      var div = d3.select(this.parentNode.parentNode.parentNode);
+      div.select(".title a").style("display", null);
+    });
+
+    brush.on("brush.chart", function() {
+      var g = d3.select(this.parentNode),
+          extent = brush.extent();
+      if (round) g.select(".brush")
+          .call(brush.extent(extent = extent.map(round)))
+        .selectAll(".resize")
+          .style("display", null);
+      g.select("#clip-" + id + " rect")
+          .attr("x", x(extent[0]))
+          .attr("width", x(extent[1]) - x(extent[0]));
+      dimension.filterRange(extent);
+    });
+
+    brush.on("brushend.chart", function() {
+      if (brush.empty()) {
+        var div = d3.select(this.parentNode.parentNode.parentNode);
+        div.select(".title a").style("display", "none");
+        div.select("#clip-" + id + " rect").attr("x", null).attr("width", "100%");
+        dimension.filterAll();
+      }
+    });
+
+    chart.margin = function(_) {
+      if (!arguments.length) return margin;
+      margin = _;
+      return chart;
+    };
+
+    chart.x = function(_) {
+      if (!arguments.length) return x;
+      x = _;
+      axis.scale(x);
+      brush.x(x);
+      return chart;
+    };
+
+    chart.y = function(_) {
+      if (!arguments.length) return y;
+      y = _;
+      return chart;
+    };
+
+    chart.dimension = function(_) {
+      if (!arguments.length) return dimension;
+      dimension = _;
+      return chart;
+    };
+
+    chart.filter = function(_) {
+      if (_) {
+        brush.extent(_);
+        dimension.filterRange(_);
+      } else {
+        brush.clear();
+        dimension.filterAll();
+      }
+      brushDirty = true;
+      return chart;
+    };
+
+    chart.group = function(_) {
+      if (!arguments.length) return group;
+      group = _;
+      return chart;
+    };
+
+    chart.round = function(_) {
+      if (!arguments.length) return round;
+      round = _;
+      return chart;
+    };
+
+    return d3.rebind(chart, brush, "on");
+  }
+});
+
+</script>
